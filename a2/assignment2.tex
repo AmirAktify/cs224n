@@ -102,7 +102,7 @@ Proceeding directly:
 =&-v_c + v_c \frac{exp(u_o^T v_c)}{\sum_{x \in vocab} exp(u_x^T v_c)} \\
 =& -v_c + v_c Pr(O = o | C = c) \\
 =& v_c Pr(O = o | C = c) -v_c \\
-=&  (y - \hat{y}) v_c
+=&  (\hat{y} - y) v_c
 \end{align*} \\
 \\
 \underline{Case 2 ($u_s$ for $s \neq o$).} 
@@ -111,7 +111,7 @@ Proceeding directly:
 \frac{\partial}{\partial u_s} J_{nsoftmax}(v_c, o, U) =& \frac{1}{\sum_{x \in vocab} exp(u_x^T v_c)}\left(\sum_{w \in vocab} \frac{\partial}{\partial u_s} exp(u_w^T v_c) \right) \\
 =& v_c \frac{exp(u_s^T v_c)}{\sum_{x \in vocab} exp(u_x^T v_c)} \\
 =& v_c Pr(O = s | C = c) \\
-=&  y v_c = (y - \hat{y}) v_c
+=&  y v_c = (\hat{y} - y) v_c
 \end{align*}
 
 \subsection*{Part (d)}
@@ -163,7 +163,7 @@ And for another $u_k$, where $k \neq o$, we have:
 \subsection*{Part (f)}
 Consider skipgram context window version of word2vec
 
-\begin{equation} J_{skipgram} (v_c, w_{t-m}, ..., w_{t+m}, U) = - \sum_{\substack{ m \leq j \leq m \\ j \neq 0}} J(v_c, w_{t+j}, U)
+\begin{equation} J_{skipgram} (v_c, w_{t-m}, ..., w_{t+m}, U) =  \sum_{\substack{ -m \leq j \leq m \\ j \neq 0}} J(v_c, w_{t+j}, U)
 \end{equation}
 
 Use skipgram derivatives from (e) to find gradients w.r.t $U$, $v_c$ and $v_w$ for when $w \neq c$.
@@ -172,11 +172,11 @@ Use skipgram derivatives from (e) to find gradients w.r.t $U$, $v_c$ and $v_w$ f
 We derive the following results:
 
 \begin{equation}
-\frac{\partial}{\partial U} J_{skipgram} (v_c, w_{t-m}, ..., w_{t+m}, U) = \sum_{\substack{ m \leq j \leq m \\ j \neq 0}} \frac{\partial}{\partial U} J(v_c, w_{t+j}, U)
+\frac{\partial}{\partial U} J_{skipgram} (v_c, w_{t-m}, ..., w_{t+m}, U) = \sum_{\substack{ -m \leq j \leq m \\ j \neq 0}} \frac{\partial}{\partial U} J(v_c, w_{t+j}, U)
 \end{equation}
 
 \begin{equation}
-\frac{\partial}{\partial v_c} J_{skipgram} (v_c, w_{t-m}, ..., w_{t+m}, U)  = \sum_{\substack{ m \leq j \leq m \\ j \neq 0}} \frac{\partial}{\partial v_c} J(v_c, w_{t+j}, U)
+\frac{\partial}{\partial v_c} J_{skipgram} (v_c, w_{t-m}, ..., w_{t+m}, U)  = \sum_{\substack{ -m \leq j \leq m \\ j \neq 0}} \frac{\partial}{\partial v_c} J(v_c, w_{t+j}, U)
 \end{equation}
 
 \begin{equation}

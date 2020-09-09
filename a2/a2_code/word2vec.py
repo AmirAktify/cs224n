@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-
+from math import log
+from functools import lru_cache
+import time
+from numpy import exp
 import numpy as np
 import random
 
 from utils.gradcheck import gradcheck_naive, grad_tests_softmax, grad_tests_negsamp
 from utils.utils import normalizeRows, softmax
-
 
 def sigmoid(x):
     """
@@ -17,11 +19,11 @@ def sigmoid(x):
     """
 
     ### YOUR CODE HERE (~1 Line)
-
+    local_sigmoid = lambda x : 1 / (1 + exp(-x))
+    s = local_sigmoid(x)
     ### END YOUR CODE
 
     return s
-
 
 def naiveSoftmaxLossAndGradient(
     centerWordVec,
@@ -55,6 +57,33 @@ def naiveSoftmaxLossAndGradient(
                     in shape (num words in vocab, word vector length) 
                     (dJ / dU)
     """
+    word_vector_length = centerWordVec.shape[0]
+    num_words = outsideVectors.shape[0]
+
+    reshapedCenterWordVec = centerWordVec.reshape([1, word_vector_length])
+
+    # [1 x number of words in vocab]
+    all_products_vector = reshapedCenterWordVec.dot(outsideVectors.transpose())
+
+    # [1 x number of words in vocab]
+    # print(f"Reshaped center word vec has shape {reshapedCenterWordVec.shape}")
+    # print(f"Outside vectors has shape {outsideVectors.shape}")
+    # print(f"Shapes of all_products is {all_products_vector.shape}")
+    y_hat = softmax(all_products_vector)
+    # print(f"y_hat shape is {y_hat.shape}")
+    loss = -np.log(y_hat[0][outsideWordIdx])
+
+    # [1 x number of words in vocab]
+    y = np.zeros([1,num_words])
+    y[0][outsideWordIdx] = 1
+
+    # 1 x number of words in vocab * [number of words in vocab  * word_vector_length
+    gradCenterVec = (y_hat-y).dot(outsideVectors)  # 1 x vocab_length * vocab_length x word_vector_length
+    gradCenterVec = gradCenterVec.reshape(word_vector_length)
+
+    # [num_of_words_in_vocab x 1][1 x word_vector_length]
+    gradOutsideVecs = ((y_hat-y).transpose()).dot(reshapedCenterWordVec)
+
 
     ### YOUR CODE HERE (~6-8 Lines)
 
@@ -106,10 +135,38 @@ def negSamplingLossAndGradient(
     indices = [outsideWordIdx] + negSampleWordIndices
 
     ### YOUR CODE HERE (~10 Lines)
+    wordVectorLength = centerWordVec.shape[0]
+    numWords = outsideVectors.shape[0]
 
-    ### Please use your implementation of sigmoid in here.
+    reshapedCenterWordVec = centerWordVec.reshape(wordVectorLength)
+    u_o = outsideVectors[outsideWordIdx].reshape(wordVectorLength)
 
-    ### END YOUR CODE
+    negativeSamples = [outsideVectors[index] for index in negSampleWordIndices]
+
+    negativeSamplesProducts = [
+        reshapedCenterWordVec.dot(sampled) for sampled in negativeSamples
+    ]
+
+    first_loss = -np.log(sigmoid(u_o.dot(reshapedCenterWordVec)))
+    second_loss = -np.sum(
+            [np.log(sigmoid(-sampled)) for sampled in negativeSamplesProducts])
+    
+    loss = first_loss + second_loss
+    gradCenterVec = -(1 - sigmoid(reshapedCenterWordVec.dot(u_o)))*u_o
+    gradCenterVec = gradCenterVec.reshape(wordVectorLength)
+
+    toAddVectors = [ (1 - sigmoid(-negativeSample.dot(reshapedCenterWordVec)))*negativeSample
+                       for negativeSample in negativeSamples]
+    toAddVec = np.add.reduce(toAddVectors)
+
+    gradCenterVec = np.add(gradCenterVec, toAddVec)
+    gradOutsideVecs = np.zeros([numWords, wordVectorLength])
+
+    u_o_derivative = -(1 - sigmoid(u_o.dot(reshapedCenterWordVec))) * reshapedCenterWordVec
+    gradOutsideVecs[outsideWordIdx] = np.add(gradOutsideVecs[outsideWordIdx], u_o_derivative)
+    for index in negSampleWordIndices:
+        gradient_vector = (1 - sigmoid(-outsideVectors[index].dot(reshapedCenterWordVec))) * reshapedCenterWordVec
+        gradOutsideVecs[index] = np.add(gradOutsideVecs[index], gradient_vector)
 
     return loss, gradCenterVec, gradOutsideVecs
 
@@ -148,16 +205,32 @@ def skipgram(currentCenterWord, windowSize, outsideWords, word2Ind,
                     in shape (num words in vocab, word vector length) 
                     (dJ / dU)
     """
-
     loss = 0.0
+
     gradCenterVecs = np.zeros(centerWordVectors.shape)
-    gradOutsideVectors = np.zeros(outsideVectors.shape)
+    gradOutsideVecs = np.zeros(outsideVectors.shape)
+    currentCenterInd = word2Ind[currentCenterWord]
+    #print(f"currentCenterInd is {currentCenterInd}")
+    currentCenterVector = centerWordVectors[currentCenterInd]
+
+    for word in outsideWords:
+        currentOutsideWordInd = word2Ind[word]
+        # print(f"Current outsideword ind is {currentOutsideWordInd}")
+        localLoss, localGradCenterVec, localGradOutsideVec = word2vecLossAndGradient(
+            currentCenterVector, currentOutsideWordInd,
+            outsideVectors, dataset
+        )
+        loss += localLoss
+        gradCenterVecs[currentCenterInd] = np.add(gradCenterVecs[currentCenterInd], localGradCenterVec)
+
+        gradOutsideVecs = np.add(gradOutsideVecs, localGradOutsideVec)
+
 
     ### YOUR CODE HERE (~8 Lines)
 
     ### END YOUR CODE
     
-    return loss, gradCenterVecs, gradOutsideVectors
+    return loss, gradCenterVecs, gradOutsideVecs
 
 
 #############################################
@@ -171,7 +244,9 @@ def word2vec_sgd_wrapper(word2vecModel, word2Ind, wordVectors, dataset,
     loss = 0.0
     grad = np.zeros(wordVectors.shape)
     N = wordVectors.shape[0]
+
     centerWordVectors = wordVectors[:int(N/2),:]
+    # print(f"Center word vectors have shape {centerWordVectors.shape}")
     outsideVectors = wordVectors[int(N/2):,:]
     for i in range(batchsize):
         windowSize1 = random.randint(1, windowSize)
@@ -181,6 +256,7 @@ def word2vec_sgd_wrapper(word2vecModel, word2Ind, wordVectors, dataset,
             centerWord, windowSize1, context, word2Ind, centerWordVectors,
             outsideVectors, dataset, word2vecLossAndGradient
         )
+        # print(f"\n \n Built wordvec model and got \n {c} \n \n {gin} \n \n {gout}")
         loss += c / batchsize
         grad[:int(N/2), :] += gin / batchsize
         grad[int(N/2):, :] += gout / batchsize
@@ -206,6 +282,7 @@ def test_word2vec():
     dummy_vectors = normalizeRows(np.random.randn(10,3))
     dummy_tokens = dict([("a",0), ("b",1), ("c",2),("d",3),("e",4)])
 
+    print("Naive softmax first")
     print("==== Gradient check for skip-gram with naiveSoftmaxLossAndGradient ====")
     gradcheck_naive(lambda vec: word2vec_sgd_wrapper(
         skipgram, dummy_tokens, vec, dataset, 5, naiveSoftmaxLossAndGradient),
@@ -222,4 +299,3 @@ def test_word2vec():
 
 if __name__ == "__main__":
     test_word2vec()
-
