@@ -1,0 +1,54 @@
+\documentclass{article}
+
+\title{CS224n: Aassignment 3}
+\author{Amirali Abdullah}
+\date{Winter 2020}
+\usepackage{graphicx}
+\usepackage{amsmath} 
+%\usepackage{amstext}
+\usepackage{multicol}
+\newenvironment{docspec}{\begin{quote}\noindent}{\end{quote}}
+\newcommand{\argmin}{\operatornamewithlimits{argmin}}
+\newcommand{\argmax}{\operatornamewithlimits{argmax}}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\textunderscript}[1]{$_{\text{#1}}$}
+\usepackage[letterpaper,portrait, margin=2cm]{geometry}
+\usepackage{tikz}
+\allowdisplaybreaks
+\setcounter{secnumdepth}{3}
+
+\begin{document}
+
+\maketitle% this prints the handout title, author, and date
+
+\subsection*{1 a (i)}
+Momentum keeps variance in the updates low, because a large proportion of the weights update is alloted to be the same as the previous step.
+
+\subsection*{1 b (i)}
+We must have that $\gamma = \frac{1}{1 - p_i}$. (By the Linearity of Expectations, so that $E (\gamma d \odot h_i)  = E(\gamma)*E(d)*E(h_i) = \frac{1}{1 - p_i} * (1 - p_i) * h_i = h_i$.
+
+\subsection*{1 b (ii)}
+We do not apply dropout at runtime (usually) since this will not help the model learn further robustness at evaluation, and when the signal is sparse we need all the inputs available.
+
+\subsection*{2 a}
+\begin{tabular}{ l|l|l|l } 
+ \hline
+ Stack & Buffer & New dependency & Transition \\ 
+ \hline
+ [ROOT] & I, parsed, this, sentence, correctly] &  & Initial Configuration \\ 
+ {[ROOT, I]}  & {[parsed, this, sentence, correctly]} &  & SHIFT \\
+ {[ROOT, I, parsed]}  & {[this, sentence, correctly]} &  & SHIFT \\
+ {[ROOT, parsed]}  & {[this, sentence, correctly]} & parsed $\rightarrow$ I & LEFT-ARC \\ 
+ {[ROOT, parsed, this]}  & {[sentence, correctly]} &  & SHIFT \\
+ {[ROOT, parsed, this, sentence]}  & {[correctly]} &  & SHIFT \\
+ {[ROOT, parsed, sentence]}  & {[correctly]} & sentence $\rightarrow$ this & LEFT-ARC \\
+ {[ROOT, parsed]}  & {[correctly]} & parsed $\rightarrow$ sentence & RIGHT-ARC \\
+ {[ROOT, parsed, correctly]}  & {[]} & & SHIFT \\
+ {[ROOT, parsed]}  & {[]} & parsed $\rightarrow$ correctly & RIGHT-ARC \\
+ {[ROOT]}  & {[]} & ROOT $\rightarrow$ parsed & RIGHT ARC \\
+ \hline
+\end{tabular}
+
+\subsection*{2 b}
+It will be parsed in $2 n$ steps. $n$ steps for moving every word onto the stack, and $n$ steps for clearing out every word from stack with a dependency.
+\end{document}
