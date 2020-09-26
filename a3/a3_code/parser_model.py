@@ -47,17 +47,39 @@ class ParserModel(nn.Module):
         self.embed_size = embeddings.shape[1]
         self.hidden_size = hidden_size
         self.embeddings = nn.Parameter(torch.tensor(embeddings))
+        self.feature_vector_length = n_features * self.embed_size
+        #print(f"Embeddings shape is {self.embeddings.shape}, vocab size is {self.embeddings.shape[0]} and embedding dimension is {self.embeddings.shape[1]}")
 
         ### YOUR CODE HERE (~10 Lines)
         ### TODO:
         ###     1) Declare `self.embed_to_hidden_weight` and `self.embed_to_hidden_bias` as `nn.Parameter`.
         ###        Initialize weight with the `nn.init.xavier_uniform_` function and bias with `nn.init.uniform_`
         ###        with default parameters.
+
+        self.embed_to_hidden_weight = nn.Parameter(
+            torch.zeros(self.feature_vector_length, self.hidden_size))
+
+        self.embed_to_hidden_bias = nn.Parameter(
+            torch.zeros(self.hidden_size))
+        nn.init.xavier_uniform_(self.embed_to_hidden_weight)
+        nn.init.uniform_(self.embed_to_hidden_bias)
+
         ###     2) Construct `self.dropout` layer.
+        self.dropout_layer = nn.Dropout(dropout_prob)
+
         ###     3) Declare `self.hidden_to_logits_weight` and `self.hidden_to_logits_bias` as `nn.Parameter`.
         ###        Initialize weight with the `nn.init.xavier_uniform_` function and bias with `nn.init.uniform_`
         ###        with default parameters.
         ###
+
+        self.hidden_to_logits_weight = nn.Parameter(
+            torch.zeros(self.hidden_size, self.n_classes))
+        nn.init.xavier_uniform_(self.hidden_to_logits_weight)
+
+        self.hidden_to_logits_bias = nn.Parameter(
+            torch.zeros(self.n_classes))
+        nn.init.uniform_(self.hidden_to_logits_bias)
+        
         ### Note: Trainable variables are declared as `nn.Parameter` which is a commonly used API
         ###       to include a tensor into a computational graph to support updating w.r.t its gradient.
         ###       Here, we use Xavier Uniform Initialization for our Weight initialization.
@@ -70,10 +92,6 @@ class ParserModel(nn.Module):
         ###     nn.Parameter: https://pytorch.org/docs/stable/nn.html#parameters
         ###     Initialization: https://pytorch.org/docs/stable/nn.init.html
         ###     Dropout: https://pytorch.org/docs/stable/nn.html#dropout-layers
-
-
-
-
         ### END YOUR CODE
 
     def embedding_lookup(self, w):
@@ -83,6 +101,14 @@ class ParserModel(nn.Module):
             @return x (Tensor): tensor of embeddings for words represented in w
                                 (batch_size, n_features * embed_size)
         """
+        #print(f"W matrix is {w.shape}")
+        batch_size = w.shape[0]
+        n_features = w.shape[1]
+        first = w.view(1, batch_size*n_features).squeeze()
+        out = torch.index_select(input=self.embeddings, dim=0, index=first)
+        final = out.reshape(batch_size, n_features*self.embed_size)
+        return final
+        
 
         ### YOUR CODE HERE (~1-3 Lines)
         ### TODO:
@@ -134,6 +160,20 @@ class ParserModel(nn.Module):
         ###     Complete the forward computation as described in write-up. In addition, include a dropout layer
         ###     as decleared in `__init__` after ReLU function.
         ###
+        #print(f"Dimensions of w in forward are {w.shape}")
+        w_embedded = self.embedding_lookup(w)
+        #print(f"Dimensions after lookup are {w_embedded.shape}")
+
+        h_w = torch.matmul(w_embedded, self.embed_to_hidden_weight)
+
+        h_w_and_b = torch.add(h_w, self.embed_to_hidden_bias)
+        h_relu_w_and_b = nn.functional.relu(h_w_and_b)
+
+        #print(f"Dimensions are hidden layer are {h_relu_w_and_b.shape}")
+
+        logits_w = torch.matmul(h_relu_w_and_b, self.hidden_to_logits_weight)
+        logits_w_and_b = torch.add(logits_w, self.hidden_to_logits_bias)
+        
         ### Note: We do not apply the softmax to the logits here, because
         ### the loss function (torch.nn.CrossEntropyLoss) applies it more efficiently.
         ###
@@ -141,9 +181,9 @@ class ParserModel(nn.Module):
         ###     Matrix product: https://pytorch.org/docs/stable/torch.html#torch.matmul
         ###     ReLU: https://pytorch.org/docs/stable/nn.html?highlight=relu#torch.nn.functional.relu
 
-
         ### END YOUR CODE
-        return logits
+        #print(f"Dimensions of logits is {logits_w_and_b.shape}")
+        return logits_w_and_b
 
 
 if __name__ == "__main__":

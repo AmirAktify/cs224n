@@ -18,7 +18,7 @@ class PartialParse(object):
         """
         # The sentence being parsed is kept for bookkeeping purposes. Do not alter it in your code.
         self.sentence = sentence
-        print(f"Sentence is {self.sentence}")
+        # print(f"Sentence is {self.sentence}")
         self.stack = ["ROOT"]
         self.buffer = copy(self.sentence)
         self.dependencies = []

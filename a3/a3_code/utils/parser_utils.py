@@ -279,9 +279,10 @@ class ModelWrapper(object):
         mb_x = np.array(mb_x).astype('int32')
         mb_x = torch.from_numpy(mb_x).long()
         mb_l = [self.parser.legal_labels(p.stack, p.buffer) for p in partial_parses]
+        mb_x = mb_x.cuda()
 
         pred = self.parser.model(mb_x)
-        pred = pred.detach().numpy()
+        pred = pred.detach().cpu().numpy()
         pred = np.argmax(pred + 10000 * np.array(mb_l).astype('float32'), 1)
         pred = ["S" if p == 2 else ("LA" if p == 0 else "RA") for p in pred]
         return pred
