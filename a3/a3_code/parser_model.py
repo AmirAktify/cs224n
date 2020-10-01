@@ -168,10 +168,11 @@ class ParserModel(nn.Module):
 
         h_w_and_b = torch.add(h_w, self.embed_to_hidden_bias)
         h_relu_w_and_b = nn.functional.relu(h_w_and_b)
+        h_dropout = self.dropout_layer(h_relu_w_and_b)
 
         #print(f"Dimensions are hidden layer are {h_relu_w_and_b.shape}")
 
-        logits_w = torch.matmul(h_relu_w_and_b, self.hidden_to_logits_weight)
+        logits_w = torch.matmul(h_dropout, self.hidden_to_logits_weight)
         logits_w_and_b = torch.add(logits_w, self.hidden_to_logits_bias)
         
         ### Note: We do not apply the softmax to the logits here, because
@@ -195,10 +196,12 @@ if __name__ == "__main__":
 
     embeddings = np.zeros((100, 30), dtype=np.float32)
     model = ParserModel(embeddings)
+    print(model.embeddings)
 
     def check_embedding():
         inds = torch.randint(0, 100, (4, 36), dtype=torch.long)
         selected = model.embedding_lookup(inds)
+        print(selected.shape)
         assert np.all(selected.data.numpy() == 0), "The result of embedding lookup: " \
                                       + repr(selected) + " contains non-zero elements."
 
